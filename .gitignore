@@ -3,27 +3,6 @@
 .terraform/
 **/.terraform/
 
-# Terraform lock file
-.terraform.lock.hcl
-
-# Terraform state files
-*.tfstate
-*.tfstate.*
-
-# Variable files (often contain secrets)
-*.tfvars
-*.tfvars.json
-
-# Terraform crash logs
-crash.log
-crash.*.log
-
-# Override files
-override.tf
-override.tf.json
-*_override.tf
-*_override.tf.json
-
-# Terraform plan files
-*.tfplan
+/infrastructure/
+/ops/
 
