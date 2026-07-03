@@ -1,0 +1,58 @@
+
+pipeline {
+    agent any
+
+    environment {
+        AWS_REGION = 'us-east-1'
+        AWS_ACCOUNT = '533267319454'
+
+        IMAGE_NAME = 'pharma-ui'
+        IMAGE_TAG = "${BUILD_NUMBER}"
+
+        ECR_REPO = "${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/pharma-ui"
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                git(
+                    branch: 'main',
+                    credentialsId: 'github-creds',
+                    url: 'https://github.com/Chaveen123/pharma-platform.git'
+                )
+            }
+        }
+
+        stage('Build Image') {
+            steps {
+                sh '''
+                docker build \
+                -t ${IMAGE_NAME}:${IMAGE_TAG} \
+                services/pharma-ui
+                '''
+            }
+        }
+
+        stage('Login ECR') {
+            steps {
+                sh '''
+                aws ecr get-login-password --region ${AWS_REGION} | \
+                docker login --username AWS --password-stdin \
+                ${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com
+                '''
+            }
+        }
+
+        stage('Push Image') {
+            steps {
+                sh '''
+                docker tag ${IMAGE_NAME}:${IMAGE_TAG} \
+                ${ECR_REPO}:${IMAGE_TAG}
+
+                docker push ${ECR_REPO}:${IMAGE_TAG}
+                '''
+            }
+        }
+    }
+}
