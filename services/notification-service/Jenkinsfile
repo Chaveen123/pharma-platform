@@ -75,9 +75,9 @@ pipeline {
             steps {
                 script {
                 sh """
-                    sed -i 's|image.repository:.*|image.repository: ${ECR_REPO}|' ops/envs/values-notification-service.yaml
-                    sed -i 's|image.tag:.*|image.tag: ${IMAGE_TAG}|' ops/envs/values-notification-service.yaml
-                    sed -i 's|configmap.DB_HOST:.*|configmap.DB_HOST: ${RDS_ENDPOINT}|' ops/envs/values-notification-service.yaml
+                    sed -i 's|repository:.*|repository: ${ECR_REPO}|' ops/envs/values-notification-service.yaml
+                    sed -i 's|tag:.*|tag: ${IMAGE_TAG}|' ops/envs/values-notification-service.yaml
+                    sed -i 's|DB_HOST:.*|DB_HOST: ${RDS_ENDPOINT}|' ops/envs/values-notification-service.yaml
                 """
                 }
             }

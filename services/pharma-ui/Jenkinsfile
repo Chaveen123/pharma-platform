@@ -69,8 +69,8 @@ pipeline {
             steps {
                 script {
                 sh """
-                    sed -i 's|image.repository:.*|image.repository: ${ECR_REPO}|' ops/envs/values-pharma-ui.yaml
-                    sed -i 's|image.tag:.*|image.tag: ${IMAGE_TAG}|' ops/envs/values-pharma-ui.yaml
+                    sed -i 's|repository:.*|repository: ${ECR_REPO}|' ops/envs/values-pharma-ui.yaml
+                    sed -i 's|tag:.*|tag: ${IMAGE_TAG}|' ops/envs/values-pharma-ui.yaml
                     sed -i 's|image:.*|image: ${ECR_REPO}:${IMAGE_TAG}|' ops/k8s-manifests/pharma-ui/deployment.yaml
                 """
                 }
