@@ -4,21 +4,37 @@ pipeline {
 
     environment {
         AWS_REGION = 'us-east-1'
-        AWS_ACCOUNT = '533267319454'
         
         IMAGE_NAME = 'auth-service'
         IMAGE_TAG = "${BUILD_NUMBER}"
-
-        ECR_REPO = "${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/auth-service"
     }
 
     stages {
+        stage('Fetch AWS Info') {
+            steps {
+                script {
+                // Get AWS Account ID
+                env.AWS_ACCOUNT = sh(
+                    script: "aws sts get-caller-identity --query Account --output text",
+                    returnStdout: true
+                ).trim()
+
+                // Get RDS Endpoint
+                env.RDS_ENDPOINT = sh(
+                    script: "aws rds describe-db-instances --db-instance-identifier pharmacy-app-dev-postgres --query 'DBInstances[0].Endpoint.Address' --output text",
+                    returnStdout: true
+                 ).trim()
+
+                env.ECR_REPO = "${env.AWS_ACCOUNT}.dkr.ecr.${env.AWS_REGION}.amazonaws.com/${env.IMAGE_NAME}"
+                }
+            }
+        }
 
         stage('Checkout') {
             steps {
                 git(
                     branch: 'main',
-                    credentialsId: 'github-creds',
+                    credentialsId: 'github-credentials',
                     url: 'https://github.com/Chaveen123/pharma-platform.git'
                 )
             }
@@ -54,5 +70,32 @@ pipeline {
                 '''
             }
         }
+
+        stage('Update Helm & Manifests') {
+            steps {
+                script {
+                sh """
+                    sed -i 's|image.repository:.*|image.repository: ${ECR_REPO}|' ops/envs/values-auth-service.yaml
+                    sed -i 's|image.tag:.*|image.tag: ${IMAGE_TAG}|' ops/envs/values-auth-service.yaml
+                    sed -i 's|configmap.DB_HOST:.*|configmap.DB_HOST: ${RDS_ENDPOINT}|' ops/envs/values-auth-service.yaml
+                """
+                }
+            }
+        }
+
+        stage('Commit & Push Changes') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'github-credentials', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD')]) {
+                    sh """
+                    git config --global user.email "jenkins@ci.local"
+                    git config --global user.name "Jenkins CI"
+
+                    git add ops/envs/values-auth-service.yaml
+                    git commit -m "Update image tag ${IMAGE_TAG}"
+                    git push https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/Chaveen123/pharma-platform.git HEAD:main
+                    """
+                }
+            }       
+        } 
     }
 }
