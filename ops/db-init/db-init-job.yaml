@@ -9,13 +9,29 @@ spec:
       containers:
       - name: db-init
         image: postgres:15-alpine
-        envFrom:
-        - configMapRef:
-            name: plsql-init
-        - secretRef:
-            name: db-credentials
-        command: ["psql"]
-        args: ["-f", "ops/db-init/schemas.sql"]
+        env:
+        - name: PGPASSWORD   # psql will use this automatically
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: DB_PASSWORD
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: DB_USERNAME
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: plsql-init
+              key: DB_ENDPOINT
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: plsql-init
+              key: DB_NAME
+        command: ["sh", "-c"]
+        args: ["psql -h $DB_HOST -U $DB_USERNAME -d $DB_NAME -f ops/db-init/schema.sql"]
         volumeMounts:
         - name: schema-sql-volume
           mountPath: /ops/db-init
