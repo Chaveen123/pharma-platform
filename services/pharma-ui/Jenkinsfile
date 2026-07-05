@@ -91,7 +91,7 @@ pipeline {
                     git config --global user.email "jenkins@ci.local"
                     git config --global user.name "Jenkins CI"
 
-                    git add ops/envs/values-pharma-ui.yaml
+                    git add ops/envs/values-pharma-ui.yaml ops/k8s-manifests/pharma-ui/deployment.yaml ops/k8s-manifests/pharma-ui/ingress.yaml
                     git commit -m "Update image tag ${IMAGE_TAG}"
                     git push https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/Chaveen123/pharma-platform.git HEAD:main
                     """
