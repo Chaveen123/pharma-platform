@@ -13,6 +13,12 @@ pipeline {
         stage('Fetch AWS Info') {
             steps {
                 script {
+                // Get NLB DNS
+                env.NLB_DNS = sh(
+                    script: "kubectl get svc ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'",
+                    returnStdout: true
+                ).trim()
+
                 // Get AWS Account ID
                 env.AWS_ACCOUNT = sh(
                     script: "aws sts get-caller-identity --query Account --output text",
@@ -23,7 +29,7 @@ pipeline {
                 env.RDS_ENDPOINT = sh(
                     script: "aws rds describe-db-instances --db-instance-identifier pharmacy-app-dev-postgres --query 'DBInstances[0].Endpoint.Address' --output text",
                     returnStdout: true
-                 ).trim()
+                ).trim()
 
                 env.ECR_REPO = "${env.AWS_ACCOUNT}.dkr.ecr.${env.AWS_REGION}.amazonaws.com/${env.IMAGE_NAME}"
                 }
@@ -77,7 +83,8 @@ pipeline {
                 sh """
                     sed -i 's|repository:.*|repository: ${ECR_REPO}|' ops/envs/values-api-gateway.yaml
                     sed -i 's|tag:.*|tag: ${IMAGE_TAG}|' ops/envs/values-api-gateway.yaml
-                    sed -i 's|arn:aws:iam::<AWS_ACCOUNT_ID>:role/pharma-dev-eks-role|arn:aws:iam::${AWS_ACCOUNT}:role/pharma-dev-eks-role|' ops/envs/values-api-gateway.yaml
+                    sed -i 's|host:.*|host: ${NLB_DNS}|' ops/envs/values-api-gateway.yaml
+                    sed -i 's|arn:aws:iam::<AWS_ACCOUNT_ID>:role/pharma-dev-eks-role|arn:aws:iam::${AWS_ACCOUNT}:role/pharma-dev-eks-role|' ops/envs/values-api-gateway.yaml               
                 """
                 }
             }
