@@ -18,7 +18,7 @@ spec:
     path: ops/helm-charts
     helm:
       valueFiles:
-        - ../../envs/values-notification-service.yaml
+        - ../envs/values-notification-service.yaml
 
   destination:
     server: https://kubernetes.default.svc

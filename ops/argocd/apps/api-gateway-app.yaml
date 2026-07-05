@@ -18,7 +18,7 @@ spec:
     path: ops/helm-charts
     helm:
       valueFiles:
-        - ../../envs/values-api-gateway.yaml
+        - ../envs/values-api-gateway.yaml
 
   destination:
     server: https://kubernetes.default.svc
