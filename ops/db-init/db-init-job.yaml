@@ -1,0 +1,26 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-init-job
+  namespace: dev
+spec:
+  template:
+    spec:
+      containers:
+      - name: db-init
+        image: postgres:15-alpine
+        envFrom:
+        - configMapRef:
+            name: plsql-init
+        - secretRef:
+            name: db-credentials
+        command: ["psql"]
+        args: ["-f", "ops/db-init/schemas.sql"]
+        volumeMounts:
+        - name: schema-sql-volume
+          mountPath: /ops/db-init
+      volumes:
+      - name: schema-sql-volume
+        configMap:
+          name: schema-sql
+      restartPolicy: Never

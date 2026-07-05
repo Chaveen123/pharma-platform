@@ -15,10 +15,10 @@ spec:
   source:
     repoURL: https://github.com/Chaveen123/pharma-platform.git
     targetRevision: HEAD
-    path: helm-charts
+    path: ops/helm-charts
     helm:
       valueFiles:
-        - ../envs/values-catalog-service.yaml
+        - ../../envs/values-drug-catalog-service.yaml
 
   destination:
     server: https://kubernetes.default.svc
