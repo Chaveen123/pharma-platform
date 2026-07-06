@@ -26,26 +26,12 @@ pipeline {
             }
         }
         
-        stage('Fetch AWS Info') {
+        stage('Fetch Git Info') {
             steps {
                 script {
                 env.COMMIT_HASH = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
                 
-                env.IMAGE_TAG   = "${IMAGE_NAME}:${COMMIT_HASH}"
-
-                // Get AWS Account ID
-                env.AWS_ACCOUNT = sh(
-                    script: "aws sts get-caller-identity --query Account --output text",
-                    returnStdout: true
-                ).trim()
-
-                // Get RDS Endpoint
-                env.RDS_ENDPOINT = sh(
-                    script: "aws rds describe-db-instances --db-instance-identifier pharmacy-app-dev-postgres --query 'DBInstances[0].Endpoint.Address' --output text",
-                    returnStdout: true
-                 ).trim()
-
-                env.ECR_REPO = "${env.AWS_ACCOUNT}.dkr.ecr.${env.AWS_REGION}.amazonaws.com/${env.IMAGE_NAME}"
+                env.IMAGE_TAG = "${IMAGE_NAME}:${COMMIT_HASH}"
                 }
             }
         }
@@ -63,6 +49,29 @@ pipeline {
                         env.SKIP_BUILD = "true"
                         return   // exit stage without failing
                     }
+                }
+            }
+        }
+
+        stage('Fetch AWS Info') {
+            when {
+                expression { env.SKIP_BUILD != "true" }
+            }  
+            steps {
+                script {
+                // Get AWS Account ID
+                env.AWS_ACCOUNT = sh(
+                    script: "aws sts get-caller-identity --query Account --output text",
+                    returnStdout: true
+                ).trim()
+
+                // Get RDS Endpoint
+                env.RDS_ENDPOINT = sh(
+                    script: "aws rds describe-db-instances --db-instance-identifier pharmacy-app-dev-postgres --query 'DBInstances[0].Endpoint.Address' --output text",
+                    returnStdout: true
+                 ).trim()
+
+                env.ECR_REPO = "${env.AWS_ACCOUNT}.dkr.ecr.${env.AWS_REGION}.amazonaws.com/${env.IMAGE_NAME}"
                 }
             }
         }

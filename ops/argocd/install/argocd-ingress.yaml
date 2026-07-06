@@ -11,7 +11,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: <YOUR_ALB_HOSTNAME>
+    - host: <DOMAIN_OR_LB>
       http:
         paths:
           - path: /
@@ -23,5 +23,5 @@ spec:
                   number: 443
   tls:
     - hosts:
-        - <YOUR_ALB_HOSTNAME>
+        - <DOMAIN_OR_LB>
       secretName: argocd-server-tls

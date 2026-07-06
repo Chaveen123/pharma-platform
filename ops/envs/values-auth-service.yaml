@@ -3,8 +3,8 @@ replicaCount: 1
 fullnameOverride: auth-service
 
 image:
-  repository: <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/auth-service
-  tag: v1.0.0
+  repository: <ECR_REPO>
+  tag: <TAG>
   pullPolicy: Always
 
 service:
