@@ -58,8 +58,9 @@ pipeline {
                         returnStdout: true
                     ).trim()
                     if (changes == "") {
+                        echo "No changes in ${IMAGE_NAME}, skipping build"
                         currentBuild.result = 'SUCCESS'
-                        error("No changes in ${IMAGE_NAME}, skipping build")
+                        return   // exit stage without failing
                     }
                 }
             }
