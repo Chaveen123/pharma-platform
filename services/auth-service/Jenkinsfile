@@ -59,7 +59,8 @@ pipeline {
                     ).trim()
                     if (changes == "") {
                         echo "No changes in ${IMAGE_NAME}, skipping build"
-                        currentBuild.result = 'SUCCESS'
+                        currentBuild.result = 'SUCCESS'          
+                        env.SKIP_BUILD = "true"
                         return   // exit stage without failing
                     }
                 }
@@ -67,16 +68,22 @@ pipeline {
         }
 
         stage('Build Image') {
+            when {
+                expression { env.SKIP_BUILD != "true" }
+            }   
             steps {
                 script {
                     sh """
-                        docker build -t ${ECR_REPO}:${COMMIT_HASH} ${SRC_PATH}
+                    docker build -t ${ECR_REPO}:${COMMIT_HASH} ${SRC_PATH}
                     """
                 }
             }
         }
 
         stage('Login ECR') {
+            when {
+                expression { env.SKIP_BUILD != "true" }
+            }   
             steps {
                 sh '''
                 aws ecr get-login-password --region ${AWS_REGION} | \
@@ -87,6 +94,9 @@ pipeline {
         }
 
         stage('Push Image') {
+            when {
+                expression { env.SKIP_BUILD != "true" }
+            }  
             steps {
                 script {
                     sh """
@@ -97,6 +107,9 @@ pipeline {
         }
 
         stage('Update Helm & Manifests') {
+            when {
+                expression { env.SKIP_BUILD != "true" }
+            }  
             steps {
                 script {
                     sh """
@@ -109,6 +122,9 @@ pipeline {
         }
 
         stage('Commit & Push Changes') {
+            when {
+                expression { env.SKIP_BUILD != "true" }
+            }  
             steps {
                 withCredentials([usernamePassword(credentialsId: 'github-credentials', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD')]) {
                     sh """
