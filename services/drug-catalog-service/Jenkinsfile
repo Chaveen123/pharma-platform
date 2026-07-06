@@ -90,6 +90,9 @@ pipeline {
         }
 
         stage('Login ECR') {
+            when {
+                expression { env.SKIP_BUILD != "true" }
+            } 
             steps {
                 sh '''
                 aws ecr get-login-password --region ${AWS_REGION} | \
