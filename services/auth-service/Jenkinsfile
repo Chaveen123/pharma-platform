@@ -2,17 +2,37 @@
 pipeline {
     agent any
 
+    triggers {
+        // Option 1: Polling (not ideal for large repos)
+        pollSCM('H/2 * * * *') // every 5 minutes
+        // Option 2: Webhook (preferred) → configure GitHub/GitLab webhook to Jenkins
+    }
+
     environment {
         AWS_REGION = 'us-east-1'
         
+        SRC_PATH = 'services/auth-service'
         IMAGE_NAME = 'auth-service'
-        IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
     stages {
+        stage('Checkout') {
+            steps {
+                git(
+                    branch: 'main',
+                    credentialsId: 'github-credentials',
+                    url: 'https://github.com/Chaveen123/pharma-platform.git'
+                )
+            }
+        }
+        
         stage('Fetch AWS Info') {
             steps {
                 script {
+                env.COMMIT_HASH = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                
+                env.IMAGE_TAG   = "${IMAGE_NAME}:${COMMIT_HASH}"
+
                 // Get AWS Account ID
                 env.AWS_ACCOUNT = sh(
                     script: "aws sts get-caller-identity --query Account --output text",
@@ -30,23 +50,28 @@ pipeline {
             }
         }
 
-        stage('Checkout') {
+        stage('Detect Changes') {
             steps {
-                git(
-                    branch: 'main',
-                    credentialsId: 'github-credentials',
-                    url: 'https://github.com/Chaveen123/pharma-platform.git'
-                )
+                script {
+                    def changes = sh(
+                        script: "git diff --name-only HEAD~1 HEAD | grep '^${SRC_PATH}/' || true",
+                        returnStdout: true
+                    ).trim()
+                    if (changes == "") {
+                        currentBuild.result = 'SUCCESS'
+                        error("No changes in ${IMAGE_NAME}, skipping build")
+                    }
+                }
             }
         }
 
         stage('Build Image') {
             steps {
-                sh '''
-                docker build \
-                -t ${IMAGE_NAME}:${IMAGE_TAG} \
-                services/auth-service
-                '''
+                script {
+                    sh """
+                        docker build -t ${ECR_REPO}:${COMMIT_HASH} ${SRC_PATH}
+                    """
+                }
             }
         }
 
@@ -62,23 +87,22 @@ pipeline {
 
         stage('Push Image') {
             steps {
-                sh '''
-                docker tag ${IMAGE_NAME}:${IMAGE_TAG} \
-                ${ECR_REPO}:${IMAGE_TAG}
-
-                docker push ${ECR_REPO}:${IMAGE_TAG}
-                '''
+                script {
+                    sh """
+                        docker push ${ECR_REPO}:${COMMIT_HASH}
+                    """
+                }
             }
         }
 
         stage('Update Helm & Manifests') {
             steps {
                 script {
-                sh """
-                    sed -i 's|repository:.*|repository: ${ECR_REPO}|' ops/envs/values-auth-service.yaml
-                    sed -i 's|tag:.*|tag: ${IMAGE_TAG}|' ops/envs/values-auth-service.yaml
-                    sed -i 's|DB_HOST:.*|DB_HOST: ${RDS_ENDPOINT}|' ops/envs/values-auth-service.yaml
-                """
+                    sh """
+                        sed -i 's|repository:.*|repository: ${ECR_REPO}|' ops/envs/values-auth-service.yaml
+                        sed -i 's|tag:.*|tag: ${IMAGE_TAG}|' ops/envs/values-auth-service.yaml
+                        sed -i 's|DB_HOST:.*|DB_HOST: ${RDS_ENDPOINT}|' ops/envs/values-auth-service.yaml
+                    """
                 }
             }
         }
