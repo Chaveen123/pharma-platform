@@ -69,7 +69,7 @@ pipeline {
             steps {
                 script {
                     sh """
-                        docker build -t ${ECR_REPO}:${IMAGE_TAG} ${SRC_PATH}
+                        docker build -t ${ECR_REPO}:${COMMIT_HASH} ${SRC_PATH}
                     """
                 }
             }
@@ -89,7 +89,7 @@ pipeline {
             steps {
                 script {
                     sh """
-                        docker push ${ECR_REPO}:${IMAGE_TAG}
+                        docker push ${ECR_REPO}:${COMMIT_HASH}
                     """
                 }
             }
@@ -100,7 +100,7 @@ pipeline {
                 script {
                     sh """
                         sed -i 's|repository:.*|repository: ${ECR_REPO}|' ops/envs/values-auth-service.yaml
-                        sed -i 's|tag:.*|tag: ${IMAGE_TAG}|' ops/envs/values-auth-service.yaml
+                        sed -i 's|tag:.*|tag: ${COMMIT_HASH}|' ops/envs/values-auth-service.yaml
                         sed -i 's|DB_HOST:.*|DB_HOST: ${RDS_ENDPOINT}|' ops/envs/values-auth-service.yaml
                     """
                 }
