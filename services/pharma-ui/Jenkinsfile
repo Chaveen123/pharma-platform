@@ -2,22 +2,36 @@
 pipeline {
     agent any
 
+    triggers {
+        // Option 1: Polling (not ideal for large repos)
+        pollSCM('H/2 * * * *') // every 5 minutes
+        // Option 2: Webhook (preferred) → configure GitHub/GitLab webhook to Jenkins
+    }
+
     environment {
         AWS_REGION = 'us-east-1'
 
+        SRC_PATH = 'services/pharma-ui'
         IMAGE_NAME = 'pharma-ui'
-        IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
     stages {
+         stage('Checkout') {
+            steps {
+                git(
+                    branch: 'main',
+                    credentialsId: 'github-credentials',
+                    url: 'https://github.com/Chaveen123/pharma-platform.git'
+                )
+            }
+        }
+
         stage('Fetch AWS Info') {
             steps {
                 script {
-                // Get NLB DNS
-                env.NLB_DNS = sh(
-                    script: "kubectl get svc ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'",
-                    returnStdout: true
-                ).trim()
+                env.COMMIT_HASH = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                
+                env.IMAGE_TAG   = "${IMAGE_NAME}:${COMMIT_HASH}"
 
                 // Get AWS Account ID
                 env.AWS_ACCOUNT = sh(
@@ -30,27 +44,40 @@ pipeline {
             }
         }
 
-        stage('Checkout') {
+        stage('Detect Changes') {
             steps {
-                git(
-                    branch: 'main',
-                    credentialsId: 'github-credentials',
-                    url: 'https://github.com/Chaveen123/pharma-platform.git'
-                )
+                script {
+                    def changes = sh(
+                        script: "git diff --name-only HEAD~1 HEAD | grep '^${SRC_PATH}/' || true",
+                        returnStdout: true
+                    ).trim()
+                    if (changes == "") {
+                        echo "No changes in ${IMAGE_NAME}, skipping build"
+                        currentBuild.result = 'SUCCESS'          
+                        env.SKIP_BUILD = "true"
+                        return   // exit stage without failing
+                    }
+                }
             }
         }
 
         stage('Build Image') {
+            when {
+                expression { env.SKIP_BUILD != "true" }
+            }   
             steps {
-                sh '''
-                docker build \
-                -t ${IMAGE_NAME}:${IMAGE_TAG} \
-                services/pharma-ui
-                '''
+                script {
+                    sh """
+                    docker build -t ${ECR_REPO}:${COMMIT_HASH} ${SRC_PATH}
+                    """
+                }
             }
         }
 
         stage('Login ECR') {
+            when {
+                expression { env.SKIP_BUILD != "true" }
+            }  
             steps {
                 sh '''
                 aws ecr get-login-password --region ${AWS_REGION} | \
@@ -61,30 +88,38 @@ pipeline {
         }
 
         stage('Push Image') {
+            when {
+                expression { env.SKIP_BUILD != "true" }
+            }  
             steps {
-                sh '''
-                docker tag ${IMAGE_NAME}:${IMAGE_TAG} \
-                ${ECR_REPO}:${IMAGE_TAG}
-
-                docker push ${ECR_REPO}:${IMAGE_TAG}
-                '''
+                script {
+                    sh """
+                        docker push ${ECR_REPO}:${COMMIT_HASH}
+                    """
+                }
             }
         }
 
+
         stage('Update Helm & Manifests') {
+            when {
+                expression { env.SKIP_BUILD != "true" }
+            }  
             steps {
                 script {
                 sh """
                     sed -i 's|repository:.*|repository: ${ECR_REPO}|' ops/envs/values-pharma-ui.yaml
-                    sed -i 's|tag:.*|tag: ${IMAGE_TAG}|' ops/envs/values-pharma-ui.yaml
+                    sed -i 's|tag:.*|tag: ${COMMIT_HASH}|' ops/envs/values-pharma-ui.yaml
                     sed -i 's|image:.*|image: ${ECR_REPO}:${IMAGE_TAG}|' ops/k8s-manifests/pharma-ui/deployment.yaml
-                    sed -i 's|host:.*|host: ${NLB_DNS}|' ops/k8s-manifests/pharma-ui/ingress.yaml
                 """
                 }
             }
         }
 
         stage('Commit & Push Changes') {
+            when {
+                expression { env.SKIP_BUILD != "true" }
+            } 
             steps {
                 withCredentials([usernamePassword(credentialsId: 'github-credentials', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD')]) {
                     sh """
