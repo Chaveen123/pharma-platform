@@ -3,8 +3,8 @@ replicaCount: 1
 fullnameOverride: notification-service
 
 image:
-  repository: <ECR_REPO>
-  tag: <TAG>
+  repository: 533267319454.dkr.ecr.us-east-1.amazonaws.com/notification-service
+  tag: de25247
   pullPolicy: Always
 
 service:
@@ -58,7 +58,7 @@ configmap:
   SMTP_HOST: "smtp.example.com"
   SMTP_PORT: "587"
   EMAIL_FROM: "noreply-dev@example.com"
-  DB_HOST: <RDS_ENDPOINT>
+  DB_HOST: pharmacy-app-dev-postgres.cdm4ao82ammw.us-east-1.rds.amazonaws.com
 
 envFrom:
   - secretRef:
