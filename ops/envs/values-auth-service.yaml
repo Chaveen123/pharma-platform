@@ -3,8 +3,8 @@ replicaCount: 1
 fullnameOverride: auth-service
 
 image:
-  repository: <ECR_REPO>
-  tag: <TAG>
+  repository: 533267319454.dkr.ecr.us-east-1.amazonaws.com/auth-service
+  tag: 306cc08
   pullPolicy: Always
 
 service:
@@ -53,7 +53,7 @@ readinessProbe:
 
 configmap:
   SPRING_PROFILES_ACTIVE: dev
-  DB_HOST: <RDS_ENDPOINT>
+  DB_HOST: pharmacy-app-dev-postgres.cdm4ao82ammw.us-east-1.rds.amazonaws.com
   LOG_LEVEL: DEBUG
   SERVER_PORT: "8081"
   TOKEN_EXPIRATION_MS: "86400000"
