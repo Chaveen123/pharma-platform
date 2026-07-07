@@ -1,14 +1,17 @@
+
 pipeline {
     agent any
 
     triggers {
+        // Option 1: Polling (not ideal for large repos)
         pollSCM('H/2 * * * *') // every 5 minutes
-        // Webhook preferred for faster response
+        // Option 2: Webhook (preferred) → configure GitHub/GitLab webhook to Jenkins
     }
 
     environment {
         AWS_REGION = 'us-east-1'
-        SRC_PATH   = 'services/auth-service'
+        
+        SRC_PATH = 'services/auth-service'
         IMAGE_NAME = 'auth-service'
     }
 
@@ -20,31 +23,15 @@ pipeline {
                     credentialsId: 'github-credentials',
                     url: 'https://github.com/Chaveen123/pharma-platform.git'
                 )
-                // Improvement #1: always fetch remote before diffing
-                sh "git fetch origin main"
             }
         }
-
+        
         stage('Fetch Git Info') {
             steps {
                 script {
-                    env.COMMIT_HASH = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-                    env.IMAGE_TAG   = "${IMAGE_NAME}:${COMMIT_HASH}"
-                }
-            }
-        }
-
-        stage('Load Last Commit') {
-            steps {
-                script {
-                    def lastCommitFile = ".last_successful_commit_${IMAGE_NAME}"
-                    if (fileExists(lastCommitFile)) {
-                        env.LAST_SUCCESSFUL_COMMIT = readFile(lastCommitFile).trim()
-                    } else {
-                        // fallback: first run, compare against origin/main
-                        env.LAST_SUCCESSFUL_COMMIT = "origin/main"
-                    }
-                    echo "Last successful commit for ${IMAGE_NAME}: ${env.LAST_SUCCESSFUL_COMMIT}"
+                env.COMMIT_HASH = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                
+                env.IMAGE_TAG = "${IMAGE_NAME}:${COMMIT_HASH}"
                 }
             }
         }
@@ -52,59 +39,60 @@ pipeline {
         stage('Detect Changes') {
             steps {
                 script {
-                    // Improvement #3: exclude manifest commits
                     def changes = sh(
-                        script: "git diff --name-only ${env.LAST_SUCCESSFUL_COMMIT}..HEAD | grep '^${SRC_PATH}/' | grep -v '^ops/envs/' || true",
+                        script: "git diff --name-only HEAD~1 HEAD | grep '^${SRC_PATH}/' || true",
                         returnStdout: true
                     ).trim()
-
-                    // Improvement #4: skip builds if commit message tagged
-                    def commitMsg = sh(script: "git log -1 --pretty=%B", returnStdout: true).trim()
-                    if (commitMsg.contains('[skip-service-build]')) {
-                        echo "Commit message indicates skip for ${IMAGE_NAME}, skipping build"
-                        env.SKIP_BUILD = "true"
-                        currentBuild.result = 'SUCCESS'
-                        return
-                    }
-
                     if (changes == "") {
                         echo "No changes in ${IMAGE_NAME}, skipping build"
+                        currentBuild.result = 'SUCCESS'          
                         env.SKIP_BUILD = "true"
-                        currentBuild.result = 'SUCCESS'
-                        return
+                        return   // exit stage without failing
                     }
                 }
             }
         }
 
         stage('Fetch AWS Info') {
-            when { expression { env.SKIP_BUILD != "true" } }
+            when {
+                expression { env.SKIP_BUILD != "true" }
+            }  
             steps {
                 script {
-                    env.AWS_ACCOUNT = sh(
-                        script: "aws sts get-caller-identity --query Account --output text",
-                        returnStdout: true
-                    ).trim()
+                // Get AWS Account ID
+                env.AWS_ACCOUNT = sh(
+                    script: "aws sts get-caller-identity --query Account --output text",
+                    returnStdout: true
+                ).trim()
 
-                    env.RDS_ENDPOINT = sh(
-                        script: "aws rds describe-db-instances --db-instance-identifier pharmacy-app-dev-postgres --query 'DBInstances[0].Endpoint.Address' --output text",
-                        returnStdout: true
-                    ).trim()
+                // Get RDS Endpoint
+                env.RDS_ENDPOINT = sh(
+                    script: "aws rds describe-db-instances --db-instance-identifier pharmacy-app-dev-postgres --query 'DBInstances[0].Endpoint.Address' --output text",
+                    returnStdout: true
+                 ).trim()
 
-                    env.ECR_REPO = "${env.AWS_ACCOUNT}.dkr.ecr.${env.AWS_REGION}.amazonaws.com/${env.IMAGE_NAME}"
+                env.ECR_REPO = "${env.AWS_ACCOUNT}.dkr.ecr.${env.AWS_REGION}.amazonaws.com/${env.IMAGE_NAME}"
                 }
             }
         }
 
         stage('Build Image') {
-            when { expression { env.SKIP_BUILD != "true" } }
+            when {
+                expression { env.SKIP_BUILD != "true" }
+            }   
             steps {
-                sh "docker build -t ${ECR_REPO}:${COMMIT_HASH} ${SRC_PATH}"
+                script {
+                    sh """
+                    docker build -t ${ECR_REPO}:${COMMIT_HASH} ${SRC_PATH}
+                    """
+                }
             }
         }
 
         stage('Login ECR') {
-            when { expression { env.SKIP_BUILD != "true" } }
+            when {
+                expression { env.SKIP_BUILD != "true" }
+            }   
             steps {
                 sh '''
                 aws ecr get-login-password --region ${AWS_REGION} | \
@@ -115,25 +103,37 @@ pipeline {
         }
 
         stage('Push Image') {
-            when { expression { env.SKIP_BUILD != "true" } }
+            when {
+                expression { env.SKIP_BUILD != "true" }
+            }  
             steps {
-                sh "docker push ${ECR_REPO}:${COMMIT_HASH}"
+                script {
+                    sh """
+                        docker push ${ECR_REPO}:${COMMIT_HASH}
+                    """
+                }
             }
         }
 
         stage('Update Helm & Manifests') {
-            when { expression { env.SKIP_BUILD != "true" } }
+            when {
+                expression { env.SKIP_BUILD != "true" }
+            }  
             steps {
-                sh """
-                    sed -i 's|repository:.*|repository: ${ECR_REPO}|' ops/envs/values-auth-service.yaml
-                    sed -i 's|tag:.*|tag: ${COMMIT_HASH}|' ops/envs/values-auth-service.yaml
-                    sed -i 's|DB_HOST:.*|DB_HOST: ${RDS_ENDPOINT}|' ops/envs/values-auth-service.yaml
-                """
+                script {
+                    sh """
+                        sed -i 's|repository:.*|repository: ${ECR_REPO}|' ops/envs/values-auth-service.yaml
+                        sed -i 's|tag:.*|tag: ${COMMIT_HASH}|' ops/envs/values-auth-service.yaml
+                        sed -i 's|DB_HOST:.*|DB_HOST: ${RDS_ENDPOINT}|' ops/envs/values-auth-service.yaml
+                    """
+                }
             }
         }
 
         stage('Commit & Push Changes') {
-            when { expression { env.SKIP_BUILD != "true" } }
+            when {
+                expression { env.SKIP_BUILD != "true" }
+            }  
             steps {
                 withCredentials([usernamePassword(credentialsId: 'github-credentials', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD')]) {
                     sh """
@@ -141,21 +141,11 @@ pipeline {
                     git config --global user.name "Jenkins CI"
 
                     git add ops/envs/values-auth-service.yaml
-                    git commit -m "Update image tag ${IMAGE_TAG} [skip-service-build]"
+                    git commit -m "Update image tag ${IMAGE_TAG}"
                     git push https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/Chaveen123/pharma-platform.git HEAD:main
                     """
                 }
-            }
-        }
-
-        stage('Save Last Commit') {
-            when { expression { env.SKIP_BUILD != "true" } }
-            steps {
-                script {
-                    writeFile file: ".last_successful_commit_${IMAGE_NAME}", text: env.COMMIT_HASH
-                    archiveArtifacts artifacts: ".last_successful_commit_${IMAGE_NAME}", fingerprint: true
-                }
-            }
-        }
+            }       
+        } 
     }
 }
