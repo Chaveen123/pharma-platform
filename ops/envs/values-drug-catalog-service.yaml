@@ -5,8 +5,8 @@ replicaCount: 1
 fullnameOverride: drug-catalog-service
 
 image:
-  repository: <ECR_REPO>
-  tag: <TAG>
+  repository: 533267319454.dkr.ecr.us-east-1.amazonaws.com/drug-catalog-service
+  tag: 3001a60
   pullPolicy: Always
 
 service:
@@ -56,7 +56,7 @@ readinessProbe:
 
 configmap:
   SPRING_PROFILES_ACTIVE: dev
-  DB_HOST: <RDS_ENDPOINT>
+  DB_HOST: pharmacy-app-dev-postgres.cdm4ao82ammw.us-east-1.rds.amazonaws.com
   LOG_LEVEL: DEBUG
   SERVER_PORT: "8082"
   MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: "health,info,metrics,prometheus"
