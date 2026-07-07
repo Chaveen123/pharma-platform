@@ -32,7 +32,7 @@ spec:
             readOnlyRootFilesystem: true
             runAsNonRoot: true
             runAsUser: 1000
-          image: <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/pharma-ui:$<IMAGE_TAG>
+          image: 533267319454.dkr.ecr.us-east-1.amazonaws.com/pharma-ui:ca0480b
           imagePullPolicy: Always
           ports:
             - name: http
