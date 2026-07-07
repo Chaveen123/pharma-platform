@@ -3,8 +3,8 @@ replicaCount: 1
 fullnameOverride: pharma-ui
 
 image:
-  repository: <ECR_REPO>
-  tag: <TAG>
+  repository: 533267319454.dkr.ecr.us-east-1.amazonaws.com/pharma-ui
+  tag: ca0480b
   pullPolicy: Always
 
 service:
