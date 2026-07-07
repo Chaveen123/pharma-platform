@@ -3,7 +3,6 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
 
-#test
 FROM node:20-alpine
 WORKDIR /app
 RUN addgroup -S pharma && adduser -S pharma -G pharma
