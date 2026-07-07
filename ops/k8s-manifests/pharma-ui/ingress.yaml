@@ -9,7 +9,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: "<DOMAIN_OR_LB>"
+    - host: app.chaveenperera.com
       http:
         paths:
           - path: /
@@ -21,5 +21,5 @@ spec:
                   number: 80
   tls:
     - hosts:
-        - "<DOMAIN_OR_LB>"
+        - app.chaveenperera.com
       secretName: pharma-ui-tls

@@ -13,7 +13,6 @@ pipeline {
 
         SRC_PATH = 'services/pharma-ui'
         IMAGE_NAME = 'pharma-ui'
-        HOST = 'app.chaveenperera.com'
     }
 
     stages {
@@ -121,8 +120,6 @@ pipeline {
                     sed -i 's|repository:.*|repository: ${ECR_REPO}|' ops/envs/values-pharma-ui.yaml
                     sed -i 's|tag:.*|tag: ${COMMIT_HASH}|' ops/envs/values-pharma-ui.yaml
                     sed -i 's|image:.*|image: ${ECR_REPO}:${COMMIT_HASH}|' ops/k8s-manifests/pharma-ui/deployment.yaml
-                    sed -i 's|host:.*|host: ${HOST}|' ops/k8s-manifests/pharma-ui/ingress.yaml
-                    sed -i "s|<DOMAIN_OR_LB>|app.chaveenperera.com|" ops/k8s-manifests/pharma-ui/ingress.yaml
                 """
                 }
             }

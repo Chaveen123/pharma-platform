@@ -11,7 +11,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: <DOMAIN_OR_LB>
+    - host: argocd.chaveenperera.com
       http:
         paths:
           - path: /
@@ -23,5 +23,5 @@ spec:
                   number: 443
   tls:
     - hosts:
-        - <DOMAIN_OR_LB>
+        - argocd.chaveenperera.com
       secretName: argocd-server-tls
